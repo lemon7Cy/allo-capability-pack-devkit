@@ -1,0 +1,5 @@
+# 只放「你们包独有」的 Python 依赖,版本必须钉死(==)。
+# 基座已有的库(fastapi/pydantic/httpx/pdfplumber/langgraph 等)不准出现在这里;
+# 拿不准的把清单发给 Allo 方对表。骨架本身零依赖,所以本文件只有注释。
+# 示例:
+# somepdflib==1.2.3

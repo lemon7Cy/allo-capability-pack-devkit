@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "package": "skeleton_pack",
+  "routers": [
+    { "module": "skeleton_pack.routers.demo", "attr": "router" }
+  ],
+  "mountPrefix": "/api/skeleton-demo",
+  "startupHooks": ["skeleton_pack.startup:on_boot"],
+  "pydeps": false
+}

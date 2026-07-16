@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "featureKey": "skeleton_demo",
+  "displayName": "骨架示例",
+  "kindSet": ["gateway-ext"],
+  "backendExt": { "package": "skeleton_pack", "mountPrefix": "/api/skeleton-demo" },
+  "frontend": { "capabilityId": "skeleton" },
+  "envContract": []
+}
