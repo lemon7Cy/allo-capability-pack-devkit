@@ -4,17 +4,28 @@
 
 ## 5 分钟跑通(先别改任何东西)
 
+macOS:
 ```bash
 # 1. 旁加载:链接名必须等于 featureKey
 ln -s "$(pwd)/backend-ext" ~/.allo/packs-active-backend/skeleton_demo
-
 # 2. 完全退出并重新打开 Allo(菜单栏退出,不是关窗口)
-
 # 3. 验证
 curl http://127.0.0.1:8001/api/skeleton-demo/ping
 #   → {"ok":true,"pack":"skeleton_demo"}
 curl "http://127.0.0.1:8001/api/skeleton-demo/greet?name=你的名字"
 ```
+
+Windows(cmd,在本目录下执行;junction 无需管理员):
+```bat
+rem 1. 旁加载
+mklink /J "%USERPROFILE%\.allo\packs-active-backend\skeleton_demo" "%CD%\backend-ext"
+rem 2. 完全退出并重新打开 Allo(任务管理器确认无 Allo 进程)
+rem 3. 验证
+curl http://127.0.0.1:8001/api/skeleton-demo/ping
+curl "http://127.0.0.1:8001/api/skeleton-demo/greet?name=你的名字"
+```
+
+骨架零 Python 依赖,两个系统都**不需要**装任何东西就能跑通这一步。
 
 看到 ping 返回 = 你的调试环境完全就绪。出问题看 `~/.allo/logs/desktop/gateway.log`(调试方案 §6 有原因对照表)。
 

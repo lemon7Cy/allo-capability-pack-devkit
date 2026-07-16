@@ -78,20 +78,30 @@ design_assistant-<version>-<platform>-<arch>.zip
 
 调试环境 = **Allo 安装版客户端本身**(不提供源码)。原理:客户端启动时扫描 `~/.allo/packs-active-backend/`,把你们的 `backend-ext/` 软链进去即被真实网关挂载;桌面模式本地 API 无鉴权,curl 直打;依赖用客户端自带的 Python 3.12 装。四步概览:
 
+macOS:
 ```bash
 ln -s /你的仓库/backend-ext ~/.allo/packs-active-backend/design_assistant   # 旁加载
-<Allo.app>/Contents/Resources/python/bin/python3 -m pip install \
-    --target /你的仓库/backend-ext/pydeps -r requirements.txt               # 装独有依赖
-# 完全退出并重开 Allo → 路由挂载在:
-curl http://127.0.0.1:8001/api/design-workbench/...                        # 验证
+"/Applications/Allo Desktop.app/Contents/Resources/python/bin/python3" \
+    -m pip install --target /你的仓库/backend-ext/pydeps -r requirements.txt # 装独有依赖(客户端自带 3.12)
+# 完全退出并重开 Allo → 验证:
+curl http://127.0.0.1:8001/api/design-workbench/...
 tail -f ~/.allo/logs/desktop/gateway.log                                    # 排错唯一通道
+```
+
+Windows(cmd,junction 无需管理员;客户端后端为冻结 exe、**不带**独立 Python,依赖用你们自己的 Python 3.12 装):
+```bat
+mklink /J "%USERPROFILE%\.allo\packs-active-backend\design_assistant" "C:\你的仓库\backend-ext"
+py -3.12 -m pip install --target C:\你的仓库\backend-ext\pydeps -r requirements.txt
+rem 完全退出并重开 Allo(任务管理器确认无 Allo 进程)→ 验证:
+curl http://127.0.0.1:8001/api/design-workbench/...
+type "%USERPROFILE%\.allo\logs\desktop\gateway.log"
 ```
 
 完整步骤、跳包原因对照表、前端联调、Windows 说明:见配套的[`docs/本地调试方案.md`](docs/本地调试方案.md)。
 
 ## 6. 打包 / 版本 / 交付
 
-- **打包工具**:`build_pack.py`(单文件脚本,随本指南一起交付,只依赖 Python3+pip):`python3 build_pack.py <你的包目录> --version 0.1.0-beta.1 --channel beta --platform darwin --arch arm64 --min-desktop-version 0.1.0 --fetch-wheels --out dist/`(win 版换 `--platform win32 --arch x64`;每个平台一个 zip)。依赖清单写在包目录根部的 `wheels-requirements.txt`(钉死版本 `==`),`--fetch-wheels` 会按目标平台自动抓对应 wheel——**在 Mac 上就能同时产出 mac 和 win 两个平台的包**
+- **打包工具**:`build_pack.py`(单文件脚本,随本指南一起交付,只依赖 Python3+pip):`python3 build_pack.py <你的包目录> --version 0.1.0-beta.1 --channel beta --platform darwin --arch arm64 --min-desktop-version 0.1.0 --fetch-wheels --out dist/`(win 版换 `--platform win32 --arch x64`;每个平台一个 zip)。依赖清单写在包目录根部的 `wheels-requirements.txt`(钉死版本 `==`),`--fetch-wheels` 会按目标平台自动抓对应 wheel——**在任一系统上都能同时产出 mac 和 win 两个平台的包**(wheels 是 PyPI 现成品,按目标平台下载,与构建机无关)
 - **版本格式**:`x.y.z-beta.N`(构建脚本强制);常规迭代 +0.01
 - **交付流程 v0**:zip 交给 Allo 方 → 我们上传发布到 `pack.design_assistant.beta`(上传自动生成整包分发)→ 测试账号所在功能组授权 → 你们在 Allo 客户端里直接安装/调试/升级
 - **灰度**:发布 ≠ 人人可见 —— 只有功能组里的员工能看到并安装,天然灰度
