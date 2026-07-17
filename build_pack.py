@@ -4,7 +4,7 @@
 Stages the pack payload (pack.json + backend-ext/ + optional wheels/, assets/,
 docs/) under ``<out>/<version>/`` and writes a per-platform manifest that the
 desktop client's ota.ts validateManifest(kind="allo-capability-pack") accepts:
-schemaVersion 2, kind, channel, version (x.y.z-beta.N), compatibility, per-file
+schemaVersion 2, kind, channel, version (x.y.z or x.y.z-beta.N), compatibility, per-file
 sha256+size, and the bundleHash = sha256 of the sorted "path:sha256" lines.
 
 pydeps/ (the client-side pip target), versions/, staging/, dist/ and pycache
@@ -31,7 +31,9 @@ from pathlib import Path
 
 PACK_KIND = "allo-capability-pack"
 MANIFEST_SCHEMA = 2
-BETA_VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-beta\.([1-9]\d*)$")
+# Stable x.y.z or prerelease x.y.z-beta.N (packs graduated to stable releases
+# with the self-contained-frontend milestone).
+BETA_VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-beta\.([1-9]\d*))?$")
 
 # pip --platform tags for cross-platform wheel fetching (only-binary). The host
 # platform uses a native download (no tag) which resolves multi-tag wheels
@@ -108,7 +110,7 @@ def _payload_files(pack_dir: Path) -> list[Path]:
 
 def build(pack_dir: Path, version: str, channel: str, platform: str, arch: str, out: Path, min_desktop: str | None) -> dict:
     if not BETA_VERSION_RE.match(version):
-        sys.exit(f"version {version!r} must be x.y.z-beta.N")
+        sys.exit(f"version {version!r} must be x.y.z or x.y.z-beta.N")
     meta = json.loads((pack_dir / "pack.json").read_text(encoding="utf-8"))
     feature_key = meta["featureKey"]
 

@@ -4,6 +4,10 @@
   "displayName": "骨架示例",
   "kindSet": ["gateway-ext"],
   "backendExt": { "package": "skeleton_pack", "mountPrefix": "/api/skeleton-demo" },
-  "frontend": { "capabilityId": "skeleton" },
+  "frontend": {
+    "kind": "iframe",
+    "entry": "ui/index.html",
+    "summary": "骨架示例:iframe 型能力包演示(UI 随包分发,零基座代码)。"
+  },
   "envContract": []
 }

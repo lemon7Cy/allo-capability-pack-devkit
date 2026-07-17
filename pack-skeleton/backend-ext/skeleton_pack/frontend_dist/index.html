@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>骨架示例</title>
+<style>
+  body{font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#f6f1e8}
+  #state{font-size:14px;color:#666}
+  button{margin-top:12px;padding:4px 14px;font-size:14px;cursor:pointer}
+</style>
+</head>
+<body>
+<h2>骨架示例工作台(iframe 型)</h2>
+<p id="greet">calling own API…</p>
+<p id="state">bridge: standalone</p>
+<button id="exit">退出</button>
+<script>
+// ============================================================================
+// 桥 shim(协议 §7.4 / 铁律 2):宿主源不可假设,靠"学习"获得。
+// 真实应用把这段逻辑原样搬进你们的入口模块即可(只改下面的 UI_MARKER)。
+// ============================================================================
+var embedded = window.self !== window.top;
+var hostOrigin = null;
+
+function postToHost(msg) {
+  if (!embedded) return;
+  try {
+    // 学到宿主 origin 前用 "*":内容不敏感,且 postMessage 只会送达真实父窗口;
+    // 学到之后所有出站消息钉死到它。
+    window.parent.postMessage(Object.assign({ protocolVersion: 1 }, msg), hostOrigin || "*");
+  } catch (e) { /* 独立预览模式:桥尽力而为 */ }
+}
+
+window.addEventListener("message", function (event) {
+  // 入站只认真正的父窗口(源帧钉死);宿主 origin 从第一条入站消息学习,绝不预设。
+  if (event.source !== window.parent) return;
+  if (!event.data || typeof event.data.type !== "string" || event.data.type.indexOf("allo:") !== 0) return;
+  hostOrigin = event.origin;
+  if (event.data.type === "allo:init") {
+    // v1 init 携带 {featureKey, locale, theme}
+    document.getElementById("state").textContent =
+      "bridge: embedded, init received (theme=" + event.data.theme.mode + ")";
+  }
+  // 桥协议只增不改:未知类型静默忽略(前向兼容)。
+});
+
+postToHost({ type: "allo:ready" });                       // 首帧即发,宿主等这条判"就绪"
+postToHost({ type: "allo:title", title: "骨架示例" });
+
+document.getElementById("exit").onclick = function () {
+  postToHost({ type: "allo:exit" });
+};
+
+// ============================================================================
+// API 基址自定位(协议 §7.5 / 铁律 3):绝不硬编码。
+// 本页面地址 = {apiBase}/api/skeleton-demo/ui/index.html;apiBase 网关直出时
+// 是 ""、打包应用经前端代理时是一个代理前缀——从自身 pathname 切出来,
+// fetch / EventSource 全用它,两个世界通吃。
+// ============================================================================
+var UI_MARKER = "/api/skeleton-demo/ui/";
+function apiBase() {
+  var i = window.location.pathname.indexOf(UI_MARKER);
+  return i > 0 ? window.location.pathname.slice(0, i) : "";
+}
+
+fetch(apiBase() + "/api/skeleton-demo/greet?name=iframe")
+  .then(function (r) { return r.json(); })
+  .then(function (d) { document.getElementById("greet").textContent = d.message; })
+  .catch(function (e) { document.getElementById("greet").textContent = "API failed: " + e; });
+
+if (embedded) document.getElementById("state").textContent = "bridge: embedded, waiting init…";
+</script>
+</body>
+</html>
