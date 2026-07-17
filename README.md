@@ -83,6 +83,19 @@ design_assistant-<version>-<platform>-<arch>.zip
   os.environ.setdefault("DESIGN_PDF_REMOTE_API", "https://pdf-service.example.com")
   os.environ.setdefault("DESIGN_PDF_REMOTE_TOKEN", "<YOUR_TOKEN>")
   ```
+- **模型调用要自报用量(直连路径必做)**:企业后台的用量统计靠**客户端自报账**。经 `deerflow.models.create_chat_model` 建的模型自带上报回调,不用管;但你们若用 OpenAI 兼容 SDK **直连**模型服务,这条路完全绕开记账——员工用得越多后台越显示 0(标书包踩过的真实事故)。直连路径在每次成功补全后补一笔(拿真实 token 优先:流式请求带 `stream_options={"include_usage": True}`,末块 usage 在 `choices` 为空的 chunk 上;拿不到就按字符估算),失败静默、绝不影响业务:
+
+  ```python
+  import threading
+  from deerflow.config import maas_auth
+
+  threading.Thread(
+      target=maas_auth.report_usage,
+      kwargs={"model": model_name, "input_tokens": in_tok, "output_tokens": out_tok,
+              "agent": "design", "scope": "step", "project_name": "design-workbench"},
+      daemon=True,
+  ).start()
+  ```
 
 ## 5. 本地开发调试(不需要源码、不需要发布就能跑)
 
@@ -218,5 +231,7 @@ fetch(apiBase() + "/api/design-workbench/your-endpoint");
 
 ## 11. CHANGELOG
 
+- **v1.1.2(2026-07-17)**:§4 新增"模型调用要自报用量"契约——OpenAI 兼容直连路径必须在成功补全后自报账(`include_usage` 取真实 token,退化字符估算),否则企业后台用量恒 0(标书包真实事故,当日修复并双端发布)。
+- **v1.1.1(2026-07-17)**:静态路由加固点增至五条——新增**显式 MIME 表**铁律(Windows 注册表无 `.mjs` 条目,`mimetypes.guess_type` 会把 pdf.js 之类的 module worker 判成 `text/plain`,Chromium 拒绝 module 导入;真机事故,症状精确局限于用到该资产的功能)。骨架静态路由同步修正。
 - **v1.1(2026-07-17)**:新增 **iframe 前端形态**并纳入冻结面(§7 全面改写):pack.json `frontend: {kind: "iframe", entry, summary, icon?}`,UI 随包分发(`backend-ext/<包>/frontend_dist/`)、由包自带的加固版静态路由在 `<mountPrefix>/ui` 服务(routers[] 必须排最后);**三条铁律**——entry 必须是具体文件(防 308/307 重定向死循环与相对路径错层)、桥不得假设宿主源(ready 用 `"*"` + 钉 `event.source` + 从首条入站消息学习宿主 origin)、API 基址不得硬编码(从自身 location 自定位);构建要求(纯静态 SPA + 相对资源 URL + 路由只许 hash)。版本格式放宽为稳定版 `x.y.z` 或 `x.y.z-beta.N`;iframe 包强制 `minDesktopVersion ≥ 0.1.21`。骨架升级为完整 iframe 演示(零构建 demo UI 内联桥 shim 与基址自定位);v1.0 的编译型前端约定弃用,`frontend-sample/` 移除(已上线的编译型包继续兼容)。
 - **v1.0**:初版协议:后端挂载契约(§2–§5)、打包与交付(§6)、编译型前端 v0 约定(旧 §7)、可旁加载跑通的骨架包。
