@@ -1,7 +1,7 @@
-# Allo 能力包开发协议(合作方版 v1.1)
+# Allo 能力包开发协议(合作方版 v1.2)
 
 > 面向:为 Allo 桌面端开发「设计图助手」等大工作流工作台的合作团队。**本仓库即完整开发工具箱**:本文档(协议)+ [`docs/本地调试方案.md`](docs/本地调试方案.md)(拿到安装版客户端后如何本地跑通、排错)+ [`pack-skeleton/`](pack-skeleton/)(可直接旁加载跑通的最小骨架,建议从它的 README 开始)+ [`build_pack.py`](build_pack.py)(交付打包脚本)。
-> **本版为 v1.1**:在 v1.0 冻结面(§2/§3 文件格式、§4 开发契约、§6 版本与交付)之上**新增 §7 iframe 前端形态并纳入冻结面**——Allo 方保证后续客户端更新向后兼容这套约定;确需变更时提前一个版本书面通知并附迁移说明。v1.0 的「组件源码编译进基座」前端约定自本版起**弃用**(已上线的编译型包继续兼容)。「标书助手」是跑在生产上的完整参照实现,本协议所有约定(含 iframe 形态与三条铁律)都经它验证(参照实现不随本仓分发)。变更历史见文末 [CHANGELOG](#11-changelog)。
+> **本版为 v1.2**:新增 §6.5 商业代码保护(编译型私有 wheel,配套模板 [`protected-wheel-example/`](protected-wheel-example/)),可选项、不改变任何既有冻结面。v1.1 在 v1.0 冻结面(§2/§3 文件格式、§4 开发契约、§6 版本与交付)之上**新增 §7 iframe 前端形态并纳入冻结面**——Allo 方保证后续客户端更新向后兼容这套约定;确需变更时提前一个版本书面通知并附迁移说明。v1.0 的「组件源码编译进基座」前端约定自本版起**弃用**(已上线的编译型包继续兼容)。「标书助手」是跑在生产上的完整参照实现,本协议所有约定(含 iframe 形态与三条铁律)都经它验证(参照实现不随本仓分发)。变更历史见文末 [CHANGELOG](#11-changelog)。
 > 结论先行:后端工作流可以**完全独立开发、独立交付、OTA 分发、装/更/卸全 UI 化,全程不需要 Allo 源码**;v1.1 起**前端同样自包含**——UI 构建产物随包分发,由包自己的静态路由服务,客户端 iframe 工作台直接打开,Allo 方零代码接入(§7)。v1.0 时代唯一的协作耦合点就此消失。
 
 ## 0. 五分钟上手路径
@@ -39,7 +39,11 @@ design_assistant-<version>-<platform>-<arch>.zip
 └── wheels/                       # 仅「包独有」的 Python 依赖轮子
     ├── requirements.txt
     └── *.whl                     # 按平台预抓(darwin-arm64 / win_amd64 分别构建)
+                                  # + 你们的编译型私有 wheel(源码保护,见 §6.5)
 ```
+
+(构建输入侧另有一个不入 zip 的目录 `wheels-local/`:放你们自己编译的私有 wheel,
+`build_pack.py` 构建时按目标平台过滤合并进 `wheels/`,见 §6.5。)
 
 ## 3. pack_backend.json(后端挂载声明)
 
@@ -131,6 +135,24 @@ iframe 型包(§7)旁加载后,客户端「智能体 → 能力包」里**直接
 - **兼容声明(iframe 包强制)**:带 iframe 前端(§7)的包**必须**声明 `--min-desktop-version`,且不得低于 **`0.1.21`**(第一个支持 iframe 能力包宿主的基座版本;若你们用到更新的基座能力,以 Allo 发布说明为准取更高值)。防的坑:老基座装上 iframe 包只会挂后端路由、界面永远不出现,员工看到的是"装了没反应"——版本闸在安装前就把这种半残组合挡掉
 - **交付流程 v0**:zip 交给 Allo 方 → 我们上传发布到 `pack.design_assistant.beta`(上传自动生成整包分发)→ 测试账号所在功能组授权 → 你们在 Allo 客户端里直接安装/调试/升级
 - **灰度**:发布 ≠ 人人可见 —— 只有功能组里的员工能看到并安装,天然灰度
+
+## 6.5 商业代码保护(可选:编译型私有 wheel,v1.2)
+
+默认交付形态下 `backend-ext/` 里的 `.py` 是**明文**。如果你们的核心算法/参数不想以源码形式出门,标准做法是把商业逻辑编成**原生扩展 wheel**,走能力包现成的 wheels 分发通道:
+
+```
+商业逻辑 .py ──Cython 编译──▶ 私有 wheel(.so/.pyd,无源码)──▶ 包目录 wheels-local/
+   ──build_pack 按平台合并──▶ wheels/ ──客户端 pip──▶ pydeps/ ──▶ backend-ext 里的薄路由 shim import 它
+```
+
+- **模板工程**:[`protected-wheel-example/`](protected-wheel-example/)——pyproject + setup.py(cythonize + 挡源码的 build_py)+ `build_wheel.py` 一键构建与审计(cp312 校验/源码泄漏拒收/纯 py wheel 拒收)。照抄改名即可,细节与接入步骤见其 README。
+- **五条硬约束**:
+  1. wheel 必须是 **cp312** 标签(基座 runtime 是 Python 3.12;解释器升级会提前一个版本公告,届时重编);
+  2. **原生扩展不能跨平台编译**——mac 编 `.so`、win 编 `.pyd`,双平台交付要在两台机器(或 CI)各构建一次(区别于 `--fetch-wheels` 拉 PyPI 现成 wheel 的"一机出双平台包");`build_pack.py` 会过滤不匹配平台的私有 wheel,**目标平台缺 wheel 时构建直接失败**(防发出缺商业逻辑的残包);
+  3. `pack_backend.json` 必须 `"pydeps": true`,否则依赖目录不进 sys.path;
+  4. 包名不得与基座库同名(pydeps 是 append,会被基座遮蔽),用 `<公司>_<产品>_core` 式命名;
+  5. wheel 内除三行 re-export 的 `__init__.py` 外不得有任何 `.py/.pyx/.pyc/.c`(审计脚本强制)。
+- **保护强度,诚实版**:编译后源码/注释/数值常量/控制流不可还原,`strings` 只剩函数名等符号;比 `.pyc`(可近乎完美反编译)强一个量级;机器码理论上仍可高成本逆向——**真·核心机密建议留在你们自己的服务器上以 API 提供**,包里只放调用方。编译工具不锁定(Nuitka 产出等价形态也收),协议只约束交付物:cp312 平台 wheel、零源码泄漏。
 
 ## 7. 前端(v1.1:iframe 自包含形态 —— 新包的标准路径)
 
@@ -225,12 +247,14 @@ fetch(apiBase() + "/api/design-workbench/your-endpoint");
 | 《本地调试方案》 | 旁加载/依赖/排错/前端联调全流程 |
 | `build_pack.py` | 单文件打包脚本(生成 manifest + 交付 zip) |
 | 骨架包 [`pack-skeleton/`](pack-skeleton/) | 可直接旁加载跑通的最小样例:pack.json(iframe 声明)/ pack_backend.json / 示例 router / 加固版静态路由 / 零构建 demo UI(桥 shim + API 基址自定位内联)/ wheels-requirements.txt |
+| 保护模板 [`protected-wheel-example/`](protected-wheel-example/) | 商业代码编译型 wheel 工程模板(§6.5):Cython 构建配置 + 一键构建/审计脚本 + 薄 shim 接入示例 |
 | 测试员工账号 | 已授权 featureKey 的功能组成员,登录后可调模型、装正式包 |
 
 不提供:Allo 源码、基座内部模块文档。你们需要的基座交互面**只有** `mountPrefix` 下的自有路由、`app.gateway.auth` 鉴权依赖、`deerflow.*` 公共层(§4),外加 iframe 桥的四个消息类型(§7.4),超出这个面的需求提给 Allo 方评估,不要靠猜。
 
 ## 11. CHANGELOG
 
+- **v1.2(2026-07-18)**:新增 §6.5 **商业代码保护**(可选,不动冻结面):商业逻辑可编成 cp312 原生扩展 wheel 放 `wheels-local/`,`build_pack.py` 按目标平台过滤合并进 `wheels/` 并追加 requirements(目标平台缺私有 wheel 时构建失败,防残包);新增模板工程 `protected-wheel-example/`(Cython 构建 + 一键审计:源码泄漏/纯 py wheel/非 cp312 全部拒收)。全链路已真机验证:编译 wheel → wheels-local 合并 → 客户端同款 pip 装 pydeps → 网关 pack_loader 挂载 → 路由调用编译模块返回正确结果;反编译抗性实测(`strings` 无源码/常量泄漏)。
 - **v1.1.2(2026-07-17)**:§4 新增"模型调用要自报用量"契约——OpenAI 兼容直连路径必须在成功补全后自报账(`include_usage` 取真实 token,退化字符估算),否则企业后台用量恒 0(标书包真实事故,当日修复并双端发布)。
 - **v1.1.1(2026-07-17)**:静态路由加固点增至五条——新增**显式 MIME 表**铁律(Windows 注册表无 `.mjs` 条目,`mimetypes.guess_type` 会把 pdf.js 之类的 module worker 判成 `text/plain`,Chromium 拒绝 module 导入;真机事故,症状精确局限于用到该资产的功能)。骨架静态路由同步修正。
 - **v1.1(2026-07-17)**:新增 **iframe 前端形态**并纳入冻结面(§7 全面改写):pack.json `frontend: {kind: "iframe", entry, summary, icon?}`,UI 随包分发(`backend-ext/<包>/frontend_dist/`)、由包自带的加固版静态路由在 `<mountPrefix>/ui` 服务(routers[] 必须排最后);**三条铁律**——entry 必须是具体文件(防 308/307 重定向死循环与相对路径错层)、桥不得假设宿主源(ready 用 `"*"` + 钉 `event.source` + 从首条入站消息学习宿主 origin)、API 基址不得硬编码(从自身 location 自定位);构建要求(纯静态 SPA + 相对资源 URL + 路由只许 hash)。版本格式放宽为稳定版 `x.y.z` 或 `x.y.z-beta.N`;iframe 包强制 `minDesktopVersion ≥ 0.1.21`。骨架升级为完整 iframe 演示(零构建 demo UI 内联桥 shim 与基址自定位);v1.0 的编译型前端约定弃用,`frontend-sample/` 移除(已上线的编译型包继续兼容)。

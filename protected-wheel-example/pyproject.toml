@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=69", "wheel", "Cython>=3.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "demo-biz-core"
+version = "0.1.0"
+description = "Example: business logic compiled to a native extension (source-protected wheel)"
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+where = ["src"]
